@@ -1,22 +1,25 @@
 A basic tool for viewing the sqlite database of Pomfort Silverstack and Offload Manager apps in your web browser.
 
 
-#### Dependancies
+### Dependancies
 ```
 pip install streamlit
 pip install sqlite3
 pip install pandas
 ```
 
-#### Usage
+### Usage
 Edit the 'db_path' variable to point to your Silverstack / Offload Manager database.
 eg:
 ```
 db_path = "/Users/dalby/Library/Application Support/Pomfort/OffloadManager/Project-79C15709ECE3/OffloadManager.psdb"
-db_path = "/Users/dalby/Library/Application Support/Pomfort/Silverstack8/Project-79C15709ECE3/OffloadManager.psdb"
+```
+or
+```
+db_path = "/Users/dalby/Library/Application Support/Pomfort/Silverstack/Project-79C15709ECE3/Silverstack8.psdb"
 ```
 
-Then run the script like so:
+### Run the script:
 ```
 streamlit run pomfort_db_explorer.py
 ```
