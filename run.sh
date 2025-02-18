@@ -1,0 +1,1 @@
+streamlit run pomfort_db_explorer.py

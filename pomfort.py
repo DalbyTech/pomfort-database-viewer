@@ -1,3 +1,9 @@
+import datetime as dt
+import re
+import os 
+
+database_paths = list()
+
 def friendly_title(input_string):
     """filter sql table name and return an easier to read name if there is a match, otherwise just return the input"""
     mapping = {
@@ -63,3 +69,73 @@ def friendly_title(input_string):
         "Z_PRIMARYKEY": "Primary Key"
     }
     return mapping.get(input_string, input_string)
+
+
+
+
+class time:
+    custom_epoch = dt.datetime(2001, 1, 1, 0, 0, 0)
+
+    @staticmethod
+    def today() -> dt.datetime:
+        now = dt.datetime.now()
+        return dt.datetime(now.year, now.month, now.day)    
+    
+    @staticmethod
+    def yesterday() -> dt.datetime:
+        now = dt.datetime.now()
+        today = dt.datetime(now.year, now.month, now.day)
+        return today - dt.timedelta(days=1)
+    
+    @staticmethod
+    def days_ago(d:int=1) -> dt.datetime:
+        now = dt.datetime.now()
+        today = dt.datetime(now.year, now.month, now.day)
+        return today - dt.timedelta(days=d-1)
+
+    @staticmethod
+    def time_now() -> dt.datetime:
+        return dt.datetime.now()
+    
+    @staticmethod
+    def convert_pomfort_time(value: float) -> dt.datetime:
+        try              : return time.custom_epoch + dt.timedelta(seconds=value)  # return creation date
+        except ValueError: return 0
+
+
+
+
+def parse_ZSTATEIDENTIFIER(input:str) -> str:
+    """eg: com.pomfort.workState.finishedUnsuccessfully -> Finished Unsuccessfully"""
+    input_split = list(input.split("."))
+    if len(input_split) == 4 and input_split[2] == 'workState':
+        output =  ' '.join(re.findall('[A-Z][a-z]*|[a-z]+', input_split[3])).title()
+        #print(self.name, input, '->', output)
+        return output
+    
+
+
+
+def get_databases() -> list:
+    """Return a list of all the databases in the directory"""
+    psdb = list()
+    home_path = os.path.expanduser("~")
+    db_path = os.path.join(home_path, "Library/Application Support/Pomfort/OffloadManager/")
+    
+    for item in os.listdir(db_path):
+        path = os.path.join(db_path, item)
+        if os.path.isdir(path):
+            for item in os.listdir(path):
+                if item.endswith('.psdb'): psdb.append(os.path.join(path, item))
+
+    return psdb
+
+database_paths = get_databases()
+
+
+
+
+
+
+if __name__ == '__main__':
+    get_databases()
