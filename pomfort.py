@@ -117,16 +117,22 @@ def parse_ZSTATEIDENTIFIER(input:str) -> str:
 
 
 def get_databases() -> list:
-    """Return a list of all the databases in the directory"""
+    """Return a list of all the databases in the Pomfort Offload Manager or SilverStack directory ('Users/user/Library/Application Support/Pomfort/)'"""
     psdb = list()
     home_path = os.path.expanduser("~")
-    db_path = os.path.join(home_path, "Library/Application Support/Pomfort/OffloadManager/")
+    db_path = os.path.join(home_path, "Library/Application Support/Pomfort/")
     
-    for item in os.listdir(db_path):
-        path = os.path.join(db_path, item)
-        if os.path.isdir(path):
-            for item in os.listdir(path):
-                if item.endswith('.psdb'): psdb.append(os.path.join(path, item))
+    for folder in ["OffloadManager", "Silverstack", "SilverStack"]:
+        folder_path = os.path.join(db_path, folder)
+        if os.path.isdir(folder_path):
+            for item in os.listdir(folder_path):
+                if os.path.isdir(folder_path):
+                    for item in os.listdir(folder_path):
+                        folder_path = os.path.join(db_path, folder, item)
+                        if os.path.isdir(folder_path):
+                            for item in os.listdir(folder_path):
+                                if item.endswith('.psdb'):
+                                    psdb.append(os.path.join(folder_path, item))
 
     return psdb
 

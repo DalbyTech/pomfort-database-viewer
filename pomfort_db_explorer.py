@@ -6,25 +6,18 @@ import datetime as dt
 import os
 
 # Path to Pomfort Silverstack / Offload Manager Project Database:
-db_path:str = None #populated from within the st sidebar
+db_path:str = None #set from within tab_settings
 
 st.set_page_config(
-    layout="wide",
+    #layout="wide",
     page_title="DalbyTech: Pomfort Database Viewer"
 )
 st.title("DalbyTech: Pomfort Database Viewer")
 st.divider()
-with st.sidebar:
-    with st.container():
-        st.write("Database Path")
-        db_path = st.selectbox("Pomfort Database Path", pomfort.database_paths)
 
-conn = sqlite3.connect(db_path)
-c = conn.cursor()
 
-# Query to get all table names
-c.execute("SELECT name FROM sqlite_master WHERE type='table';")
-tables = sorted([table[0] for table in c.fetchall()])
+
+
 
 def grab_table(table_name: str, col_order: list = None):
     col_order = col_order or []
@@ -63,6 +56,11 @@ class Job:
 
 
             self.status = pomfort.parse_ZSTATEIDENTIFIER(row["ZSTATEIDENTIFIER"])
+
+            if  self.status is not None:
+                status = self.status.lower()
+                if   'unsuccessfull' in status: self.status = f'⚠️ {self.status}'
+                elif 'successfull'   in status: self.status = f'✅ {self.status}'
             self.completed = row["ZFINISHDATE"]
 
     
@@ -76,7 +74,20 @@ def convert_date_values(df):
     return df_copy
 
 
-tab_jobs, tab_volumes, tab_all, = st.tabs(["Jobs", "Volumes", "All"])
+tab_jobs, tab_volumes, tab_all, tab_settings, = st.tabs(["Jobs", "Volumes", "All", "Settings"])
+
+with tab_settings:
+    with st.container(border=True):
+        st.write("Select Database Path")
+        db_path = st.selectbox("Pomfort Database Path", pomfort.database_paths)
+        st.write(f'```{db_path}```')
+
+    conn = sqlite3.connect(db_path)
+    c = conn.cursor()
+
+    # Query to get all table names
+    c.execute("SELECT name FROM sqlite_master WHERE type='table';")
+    tables = sorted([table[0] for table in c.fetchall()])
 
 with tab_all:
     # Display data from every table (as before)
@@ -107,8 +118,6 @@ with tab_jobs:
             )
             break
 
-    st.subheader("Activity Job")
-    st.caption(activity_table)
     from_date = st.number_input("Show Jobs From Last Days", min_value=1, value=1)
 
     if jobs_df is not None:
