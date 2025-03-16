@@ -4,6 +4,7 @@ import pandas as pd
 import pomfort
 import datetime as dt
 import os
+import time
 
 # Path to Pomfort Silverstack / Offload Manager Project Database:
 db_path:str = None #set from within tab_settings
@@ -14,6 +15,7 @@ st.set_page_config(
 )
 st.title("DalbyTech: Pomfort Database Viewer")
 st.divider()
+
 
 
 
@@ -50,12 +52,15 @@ class Job:
         """
         z_ent = row["Z_ENT"]
         idx = 0 if z_ent == 5 else 1 if z_ent == 9 else None
+
         if idx is not None:
             self.progress[idx] = float(row["ZPROGRESS"])
             self.priority[idx] = float(row["ZPRIORITY"])
+            print('priority:', self.priority)
 
 
-            self.status = pomfort.parse_ZSTATEIDENTIFIER(row["ZSTATEIDENTIFIER"])
+            if idx == 0 and self.progress[0] != 1.0 or idx == 1 and self.progress[0] == 1.0:
+                self.status = pomfort.parse_ZSTATEIDENTIFIER(row["ZSTATEIDENTIFIER"])
 
             if  self.status is not None:
                 status = self.status.lower()
@@ -74,6 +79,8 @@ def convert_date_values(df):
     return df_copy
 
 
+cnt_status = st.container()
+
 tab_jobs, tab_volumes, tab_all, tab_settings, = st.tabs(["Jobs", "Volumes", "All", "Settings"])
 
 with tab_settings:
@@ -82,12 +89,13 @@ with tab_settings:
         db_path = st.selectbox("Pomfort Database Path", pomfort.database_paths)
         st.write(f'```{db_path}```')
 
-    conn = sqlite3.connect(db_path)
-    c = conn.cursor()
+        conn = sqlite3.connect(db_path)
+        c = conn.cursor()
 
-    # Query to get all table names
-    c.execute("SELECT name FROM sqlite_master WHERE type='table';")
-    tables = sorted([table[0] for table in c.fetchall()])
+        # Query to get all table names
+        c.execute("SELECT name FROM sqlite_master WHERE type='table';")
+        tables = sorted([table[0] for table in c.fetchall()])
+
 
 with tab_all:
     # Display data from every table (as before)
@@ -128,6 +136,7 @@ with tab_jobs:
         jobs_df = jobs_df[jobs_df["ZCREATIONDATE"] > pomfort.time.days_ago(from_date)]
         jobs_df.sort_values(by=["ZPRIORITY", "ZCREATIONDATE"], ascending=True, inplace=True)
 
+
         # Create or update Job objects from each row
         for _, row in jobs_df.iterrows():
             name = row["ZNAME"]
@@ -146,9 +155,9 @@ with tab_jobs:
                 "Priority"       : max(job.priority[0],job.priority[1]) if job.priority[0] is not None and job.priority[1] is not None else None,
                 "Status"         : job.status,
             })
-        df_jobs = pd.DataFrame(job_rows)
 
-        #df_jobs.sort_values(by=['Status', 'Priority', 'Copy Progress', 'Verify Progress'], ascending=[False, False, True, True], inplace=True)
+        df_jobs = pd.DataFrame(job_rows)
+        df_jobs.sort_values(by=['Status', 'Priority', 'Copy Progress', 'Verify Progress'], ascending=[True, False, False, False], inplace=True, na_position='last')
 
         # Configure the progress columns so they render as progress bars.
         column_config = {
@@ -163,14 +172,36 @@ with tab_jobs:
         edited_df_jobs = st.data_editor(df_jobs, column_config=column_config, use_container_width=True)
 
         # Check if any values in the "Priority" column have been changed
+        error_count = 0
         for index, row in edited_df_jobs.iterrows():
             original_priority = df_jobs.at[index, "Priority"]
             new_priority = row["Priority"]
 
+            if 'Unsuccessful' in str(row["Status"]):
+                error_count +=1
+
+            original_priority = float(original_priority) if original_priority is not None else 0.0
+            if new_priority is not None:
+                new_priority = float(new_priority)
+            if original_priority is not None and new_priority is not None and float(original_priority) != float(new_priority):
+                if float(original_priority) != float(new_priority):
+                    c.execute(f"UPDATE {activity_table} SET ZPRIORITY = ? WHERE ZNAME = ?", (new_priority, row["Job Name"]))
+                    conn.commit()
+                    cnt_status.success(f"Updated priority for {row['Job Name']}")
+                    # Ensure the priorities are the same kind of data
+
+
+            print(f"Original Priority: {original_priority} (type: {type(original_priority)})")
+            print(f"New Priority: {float(new_priority)} (type: {type(new_priority)})")
+
             if original_priority != new_priority:
-                c.execute(f"UPDATE {activity_table} SET ZPRIORITY = ? WHERE ZNAME = ?", (new_priority, row["Job Name"]))
-                conn.commit()
-                st.success(f"Updated priority for {row['Job Name']}")
+                print("The priorities are different.")
+            else:
+                print("The priorities are the same.")
+
+
+        if error_count > 0:
+            cnt_status.error(f"{error_count} Unsuccessful Jobs", icon='⚠️')
 
 
 
